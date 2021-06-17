@@ -10,7 +10,7 @@ from kubernetes import client, config
 from kubernetes.config import ConfigException
 
 """
-Teknoir custom dynamic inventory script for Ansible, in Python.
+Teknoir Notebook custom dynamic inventory script for Ansible, in Python.
 """
 
 
@@ -56,14 +56,15 @@ class TeknoirInventory(object):
                                                   device_patch)
         self.tunnel_opened = True
         return port
-    
+
     def teknoir_inventory(self):
+        namespace = os.getenv('NAMESPACE', "namespace does not exist")
         config.load_incluster_config()
         custom_api = client.CustomObjectsApi()
         devices = custom_api.list_namespaced_custom_object(group="kubeflow.org",
                                                            version="v1",
                                                            plural="devices",
-                                                           namespace="avangard-production")
+                                                           namespace=namespace)
 
         inventory = {
             '_meta': {
@@ -85,15 +86,16 @@ class TeknoirInventory(object):
                 with open(private_key_file, 'w') as outfile:
                     outfile.write(self.decode(device['spec']['keys']['data']['rsa_private']))
                 os.chmod(private_key_file, 0o400)
-            
+
             tunnel_port = self.decode(device['spec']['keys']['data']['tunnel'])
             if not tunnel_port.isdigit():
-                tunnel_port = self._start_reverse_tunnel(custom_api, device["metadata"]["namespace"], device["metadata"]["name"])
+                tunnel_port = self._start_reverse_tunnel(custom_api, device["metadata"]["namespace"],
+                                                         device["metadata"]["name"])
 
             hostname = f'{device["metadata"]["name"]}'
             inventory[ansible_group]['hosts'].append(hostname)
             inventory['_meta']['hostvars'][hostname] = {
-                'ansible_connection': 'teknoir',
+                'ansible_connection': 'ssh',
                 'ansible_port': tunnel_port,
                 'ansible_host': 'localhost',
                 'ansible_user': self.decode(device['spec']['keys']['data']['username']),
