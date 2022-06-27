@@ -74,7 +74,8 @@ class TeknoirInventory(object):
         ssh_port = 2200
         for device in devices['items']:
             ansible_group = device["metadata"]["namespace"].replace('-', '_')
-            path = f'inv/{ansible_group}/'
+            current_work_dir = os.getcwd()
+            path = f'{current_work_dir}/inv/{ansible_group}/'
             if ansible_group not in inventory:
                 inventory[ansible_group] = {
                     'hosts': [],
