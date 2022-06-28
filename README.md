@@ -6,7 +6,11 @@ Notebooks runs in namespaces, the scope of devices to control is defined by the 
   * Dashes(-) will be replaced with underscores(_)
 * The Connection Plugin automatically enable tunnels for devices but...
   * does not tear them down after
-    
+
+## Requirements
+* corkscrew
+* rsync
+
 ## List devices
 ```bash
 ansible -i inventory.py --list-hosts all
