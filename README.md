@@ -4,6 +4,10 @@ Notebooks runs in namespaces, the scope of devices to control is defined by the 
 ## Limitations
 * Namespaces become groups, we do not support namespaces with dashes(-).
   * Dashes(-) will be replaced with underscores(_)
+* Labels become groups as follows:
+  * A label consists of key and value
+  * Groups are contructed concatinating key and value separated by underscore(_)
+  * I.e. key_value
 * The Connection Plugin automatically enable tunnels for devices but...
   * does not tear them down after
 
