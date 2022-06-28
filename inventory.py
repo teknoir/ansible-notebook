@@ -76,12 +76,27 @@ class TeknoirInventory(object):
             ansible_group = device["metadata"]["namespace"].replace('-', '_')
             current_work_dir = os.getcwd()
             path = f'{current_work_dir}/inv/{ansible_group}/'
+            hostname = f'{device["metadata"]["name"]}'
+
             if ansible_group not in inventory:
                 inventory[ansible_group] = {
                     'hosts': [],
                     'vars': {}
                 }
                 os.makedirs(path, exist_ok=True)
+            inventory[ansible_group]['hosts'].append(hostname)
+
+            for label, value in device["metadata"]["labels"].items():
+                label = label.replace('-', '_')
+                value = value.replace('-', '_')
+                additional_group = f'{label}_{value}'
+                if additional_group not in inventory:
+                    inventory[additional_group] = {
+                        'hosts': [],
+                        'vars': {}
+                    }
+                inventory[additional_group]['hosts'].append(hostname)
+
             private_key_file = f'{path}{device["metadata"]["name"]}.pem'
             if not os.path.isfile(private_key_file):
                 with open(private_key_file, 'w') as outfile:
@@ -93,8 +108,7 @@ class TeknoirInventory(object):
                 tunnel_port = self._start_reverse_tunnel(custom_api, device["metadata"]["namespace"],
                                                          device["metadata"]["name"])
 
-            hostname = f'{device["metadata"]["name"]}'
-            inventory[ansible_group]['hosts'].append(hostname)
+
             inventory['_meta']['hostvars'][hostname] = {
                 'ansible_connection': 'ssh',
                 'ansible_port': tunnel_port,
