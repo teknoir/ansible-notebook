@@ -1,6 +1,7 @@
 ---
 - name: Teknoir Notebook Example Playbook
   hosts: all
+  vars:
     project_id: "{{ lookup('env','PROJECT_ID') }}"
     ns: "{{ lookup('env','NAMESPACE') }}"
     branch_name: "{{ lookup('env','BRANCH_NAME') }}"
@@ -14,23 +15,23 @@
 
   - name: Create temporary hello dir
     ansible.builtin.file:
-      path: "{{home}}/tmp/hello"
+      path: "/tmp/hello"
       state: directory
 
   - name: RSync workdir (using .rsync-filter file)
     rsync:
       src: "{{ playbook_dir }}/"
-      dest: "{{home}}/tmp/hello"
+      dest: "/tmp/hello"
       recursive: yes
       delete: yes
 
   - name: Set image and tag variables
     set_fact:
-      image: "{{ location }}-docker.pkg.dev/{{ project_id }}/{{ ns }}/webm-stream"
-      tag: "{{ branch_name }}-{{ short_sha }}"
+      image: "{{ location }}-docker.pkg.dev/{{ project_id }}/{{ ns }}/hello"
+      tag: my-tag
 
   - name: Build image
-    ansible.builtin.shell: docker build --tag={{ image }}:{{ tag }} -f {{home}}/tmp/hello/Dockerfile {{home}}/tmp/hello
+    ansible.builtin.shell: docker build --tag={{ image }}:{{ tag }} -f /tmp/hello/Dockerfile /tmp/hello
 
   - name: Get temporary registry access token
     local_action:
@@ -43,7 +44,7 @@
       access_token: "{{ access_token_result.stdout }}"
 
   - name: Push image
-    ansible.builtin.shell: echo "{{ access_token }}" | docker login -u oauth2accesstoken --password-stdin https://{{ location }}-docker.pkg.dev && docker push {{ image_name }}:{{ tag }}
+    ansible.builtin.shell: echo "{{ access_token }}" | docker login -u oauth2accesstoken --password-stdin https://{{ location }}-docker.pkg.dev && docker push {{ image }}:{{ tag }}
 
   - name: Run hello image
     ansible.builtin.command: docker run -ti --rm {{ image }}:{{ tag }}
