@@ -1,23 +1,49 @@
 ---
-- name: Teknoir Notebook Playbook
+- name: Teknoir Notebook Example Playbook
   hosts: all
-
+    project_id: "{{ lookup('env','PROJECT_ID') }}"
+    ns: "{{ lookup('env','NAMESPACE') }}"
+    branch_name: "{{ lookup('env','BRANCH_NAME') }}"
+    short_sha: "{{ lookup('env','SHORT_SHA') }}"
+    location: us-central1
   tasks:
   - name: Install required python packages
     pip:
       name:
         - minimal
 
-  - name: Create tmp dir
+  - name: Create temporary hello dir
     ansible.builtin.file:
-      path: "{{home}}/tmp"
+      path: "{{home}}/tmp/hello"
       state: directory
 
-  - name: Copy hello.sh to host, and make it executable
-    ansible.builtin.copy:
-      src: files/hello.sh
-      dest: "{{home}}/tmp/hello.sh"
-      mode:  u+rwx,g+rwx,o-wx
+  - name: RSync workdir (using .rsync-filter file)
+    rsync:
+      src: "{{ playbook_dir }}/"
+      dest: "{{home}}/tmp/hello"
+      recursive: yes
+      delete: yes
 
-  - name: Run hello.sh
-    ansible.builtin.command: "{{home}}/tmp/hello.sh"
+  - name: Set image and tag variables
+    set_fact:
+      image: "{{ location }}-docker.pkg.dev/{{ project_id }}/{{ ns }}/webm-stream"
+      tag: "{{ branch_name }}-{{ short_sha }}"
+
+  - name: Build image
+    ansible.builtin.shell: docker build --tag={{ image }}:{{ tag }} -f {{home}}/tmp/hello/Dockerfile {{home}}/tmp/hello
+
+  - name: Get temporary registry access token
+    local_action:
+      module: ansible.builtin.command
+      _raw_params: gcloud auth application-default print-access-token
+    register: access_token_result
+
+  - name: Set access token variable
+    set_fact:
+      access_token: "{{ access_token_result.stdout }}"
+
+  - name: Push image
+    ansible.builtin.shell: echo "{{ access_token }}" | docker login -u oauth2accesstoken --password-stdin https://{{ location }}-docker.pkg.dev && docker push {{ image_name }}:{{ tag }}
+
+  - name: Run hello image
+    ansible.builtin.command: docker run -ti --rm {{ image }}:{{ tag }}
