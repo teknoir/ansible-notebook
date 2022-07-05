@@ -100,7 +100,7 @@ class TeknoirInventory(object):
             private_key_file = f'{path}{device["metadata"]["name"]}.pem'
             with open(private_key_file, 'w') as outfile:
                 outfile.write(self.decode(device['spec']['keys']['data']['rsa_private']))
-            os.chmod(private_key_file, 0o400)
+            os.chmod(private_key_file, 0o600)
 
             tunnel_port = self.decode(device['spec']['keys']['data']['tunnel'])
             if not tunnel_port.isdigit():
