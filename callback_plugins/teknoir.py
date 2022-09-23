@@ -8,13 +8,19 @@ class CallbackModule(CallbackBase):
         hosts = sorted(stats.processed.keys())
 
         failed_devices_file = 'failed_devices'
-        devices = []
+        successful_devices_file = 'successful_devices'
+        failed_devices = []
+        successful_devices = []
+
+        for h in hosts:
+            t = stats.summarize(h)
+            if t['failures'] > 0 or t['unreachable'] > 0:
+                failed_devices.append(h)
+            else:
+                successful_devices.append(h)
+
         with open(failed_devices_file, 'w') as outfile:
+             outfile.write(' '.join(failed_devices))
 
-
-            for h in hosts:
-                t = stats.summarize(h)
-                if t['failures'] > 0 or t['unreachable'] > 0:
-                    devices.append(h)
-
-        outfile.write(' '.join(devices))
+        with open(successful_devices_file, 'w') as outfile:
+            outfile.write(' '.join(successful_devices))
