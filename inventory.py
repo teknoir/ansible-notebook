@@ -6,6 +6,8 @@ import argparse
 import json
 import base64
 import random
+import yaml
+import copy
 from kubernetes import client, config
 from kubernetes.config import ConfigException
 
@@ -19,10 +21,28 @@ class TeknoirInventory(object):
     def __init__(self):
         self.inventory = {}
         self.read_cli_args()
+        self.current_work_dir = os.getcwd()
+        self.inventory_path = f'{self.current_work_dir}/.inventory'
 
         # Called with `--list`.
         if self.args.list:
             self.inventory = self.teknoir_inventory()
+        # Called with `--yaml` generate static inventory.
+        elif self.args.yaml:
+            self.inventory = self.teknoir_inventory()
+            inventory_temp = copy.deepcopy(self.inventory)
+            self.inventory_to_yaml = {'all': {'children': {}}}
+            self.inventory_to_yaml['all']['hosts'] = inventory_temp['_meta'].pop('hostvars')
+            inventory_temp.pop('_meta')
+            for group_name, group_dict in inventory_temp.items():
+                self.inventory_to_yaml['all']['children'][group_name] = {
+                    'hosts': {host: {} for host in group_dict['hosts']},
+                    'vars': group_dict['vars']
+                }
+
+            inventory_file = f'{self.inventory_path}/inventory.yaml'
+            with open(inventory_file, 'w') as outfile:
+                outfile.write(yaml.dump(self.inventory_to_yaml, default_flow_style=False))
         # Called with `--host [hostname]`.
         elif self.args.host:
             # Not implemented, since we return _meta info `--list`.
@@ -82,8 +102,7 @@ class TeknoirInventory(object):
         ssh_port = 2200
         for device in devices['items']:
             ansible_group = device["metadata"]["namespace"].replace('-', '_').replace('.', '_')
-            current_work_dir = os.getcwd()
-            path = f'{current_work_dir}/inv/{ansible_group}/'
+            path = f'{self.inventory_path}/{ansible_group}/'
             hostname = f'{device["metadata"]["name"]}'
 
             if ansible_group not in inventory:
@@ -141,6 +160,7 @@ class TeknoirInventory(object):
     def read_cli_args(self):
         parser = argparse.ArgumentParser()
         parser.add_argument('--list', action='store_true')
+        parser.add_argument('--yaml', action='store_true')
         parser.add_argument('--host', action='store')
         self.args = parser.parse_args()
 
