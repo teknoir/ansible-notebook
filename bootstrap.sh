@@ -13,3 +13,6 @@ cp -rf module_plugins/* /usr/share/ansible/plugins/modules/
 
 mkdir -p /usr/share/ansible/plugins/action
 cp -rf action_plugins/* /usr/share/ansible/plugins/action/
+
+mkdir -p /usr/share/ansible/plugins/callback
+cp -rf callback_plugins/* /usr/share/ansible/plugins/callback/
