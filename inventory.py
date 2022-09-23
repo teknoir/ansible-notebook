@@ -59,7 +59,15 @@ class TeknoirInventory(object):
 
     def teknoir_inventory(self):
         namespace = os.getenv('NAMESPACE', "namespace does not exist")
-        config.load_incluster_config()
+
+        try:
+            config.load_kube_config()
+        except config.ConfigException:
+            try:
+                config.load_incluster_config()
+            except config.ConfigException:
+                raise Exception("Could not configure kubernetes python client")
+
         custom_api = client.CustomObjectsApi()
         devices = custom_api.list_namespaced_custom_object(group="kubeflow.org",
                                                            version="v1",
@@ -73,7 +81,7 @@ class TeknoirInventory(object):
         }
         ssh_port = 2200
         for device in devices['items']:
-            ansible_group = device["metadata"]["namespace"].replace('-', '_')
+            ansible_group = device["metadata"]["namespace"].replace('-', '_').replace('.', '_')
             current_work_dir = os.getcwd()
             path = f'{current_work_dir}/inv/{ansible_group}/'
             hostname = f'{device["metadata"]["name"]}'
@@ -87,8 +95,8 @@ class TeknoirInventory(object):
             inventory[ansible_group]['hosts'].append(hostname)
 
             for label, value in device["metadata"]["labels"].items():
-                label = label.replace('-', '_')
-                value = value.replace('-', '_')
+                label = label.replace('-', '_').replace('.', '_')
+                value = value.replace('-', '_').replace('.', '_')
                 additional_group = f'{label}_{value}'
                 if additional_group not in inventory:
                     inventory[additional_group] = {
@@ -106,7 +114,6 @@ class TeknoirInventory(object):
             if not tunnel_port.isdigit():
                 tunnel_port = self._start_reverse_tunnel(custom_api, device["metadata"]["namespace"],
                                                          device["metadata"]["name"])
-
 
             inventory['_meta']['hostvars'][hostname] = {
                 'ansible_connection': 'ssh',
