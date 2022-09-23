@@ -21,12 +21,12 @@ class TeknoirInventory(object):
     def __init__(self):
         self.inventory = {}
         self.read_cli_args()
-        self.current_work_dir = os.getcwd()
-        self.inventory_path = f'{self.current_work_dir}/.inventory'
+        self.inventory_path = self.args.output
 
         # Called with `--list`.
         if self.args.list:
             self.inventory = self.teknoir_inventory()
+            print(json.dumps(self.inventory, indent=4, sort_keys=True));
         # Called with `--yaml` generate static inventory.
         elif self.args.yaml:
             self.inventory = self.teknoir_inventory()
@@ -47,11 +47,13 @@ class TeknoirInventory(object):
         elif self.args.host:
             # Not implemented, since we return _meta info `--list`.
             self.inventory = self.teknoir_inventory()
+            print(json.dumps(self.inventory, indent=4, sort_keys=True));
         # If no groups or vars are present, return empty inventory.
         else:
             self.inventory = self.empty_inventory()
+            print(json.dumps(self.inventory, indent=4, sort_keys=True));
 
-        print(json.dumps(self.inventory, indent=4, sort_keys=True));
+
 
     def decode(self, s):
         return base64.b64decode(s.encode('utf-8')).decode('utf-8')
@@ -158,10 +160,12 @@ class TeknoirInventory(object):
 
     # Read the command line args passed to the script.
     def read_cli_args(self):
+        inventory_path = f'{os.getcwd()}/.inventory'
         parser = argparse.ArgumentParser()
         parser.add_argument('--list', action='store_true')
         parser.add_argument('--yaml', action='store_true')
         parser.add_argument('--host', action='store')
+        parser.add_argument('--output', default=inventory_path)
         self.args = parser.parse_args()
 
 
