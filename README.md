@@ -8,8 +8,7 @@ Notebooks runs in namespaces, the scope of devices to control is defined by the 
   * A label consists of key and value
   * Groups are contructed concatinating key and value separated by underscore(_)
   * I.e. key_value
-* The Connection Plugin automatically enable tunnels for devices but...
-  * does not tear them down after
+* The Plugin do not automatically open or close reverse-tunnels
 
 ## Requirements
 * corkscrew
