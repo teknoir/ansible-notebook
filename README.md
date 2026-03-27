@@ -11,15 +11,33 @@ Notebooks runs in namespaces, the scope of devices to control is defined by the 
 * The Plugin do not automatically open or close reverse-tunnels
 
 ## Requirements
-* corkscrew
 * rsync
 
 ## List devices
 ```bash
-ansible -i inventory.py --list-hosts all
+ansible --list-hosts all
 ```
 
-## Patch devices
+## Synchronize (rsync) from host to local
 ```bash
-ansible-playbook -v -i inventory.py playbook.yaml --limit my-device-01,my-device-02
+ansible <device_name> -m synchronize -a "src=/path/to/source/dir/ dest=/path/to/local/target/dir/ use_ssh_args=yes mode=pull"
 ```
+_Synchronize does not work with "become"(sudo)_
+
+## Syncronize (rsync) from local to host
+```bash
+ansible <device_name> -m synchronize -a "src=/path/to/local/source/dir/ dest=/path/to/target/dir/ use_ssh_args=yes"
+```
+_Synchronize does not work with "become"(sudo)_
+
+## Run playbook examples
+Run for one device:
+```bash
+ansible-playbook -v -i inventory.py playbook.yaml --limit <device_name>
+```
+
+## Run for all devices with label:
+```bash
+ansible-playbook -v -i inventory.py playbook.yaml --limit <label>
+```
+_Observe how labels are constructed, see Limitations above!_

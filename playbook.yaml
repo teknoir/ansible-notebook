@@ -8,43 +8,56 @@
     short_sha: "{{ lookup('env','SHORT_SHA') }}"
     location: us-central1
   tasks:
-  - name: Install required python packages
-    pip:
-      name:
-        - minimal
+    - name: Ensure tmp ansible dir
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/tmp/ansible
+        state: directory
+        mode: '0755'
 
-  - name: Create temporary hello dir
-    ansible.builtin.file:
-      path: "/tmp/hello"
-      state: directory
+    - name: Ensure local tmp ansible dir
+      delegate_to: localhost
+      ansible.builtin.file:
+        path: ./tmp/ansible
+        state: directory
+        mode: '0755'
 
-  - name: RSync workdir (using .rsync-filter file)
-    rsync:
-      src: "{{ playbook_dir }}/"
-      dest: "/tmp/hello"
-      recursive: yes
-      delete: yes
+    - name: Copy ansible dir to remote host
+      ansible.builtin.synchronize:
+        use_ssh_args: true
+        src: ./
+        dest: /home/{{ ansible_user }}/tmp/ansible/
+        recursive: yes
+        delete: yes
+        rsync_opts:
+          - --include=*.yaml
+          - --include=*.cfg
+          - --include=*.sh
+          - --include=*.py
+          - --include=*.md
+          - --exclude=*
 
-  - name: Set image and tag variables
-    set_fact:
-      image: "{{ location }}-docker.pkg.dev/{{ project_id }}/{{ ns }}/hello"
-      tag: my-tag
+    - name: Copy ansible dir back to local
+      ansible.builtin.synchronize:
+        use_ssh_args: true
+        src: /home/{{ ansible_user }}/tmp/ansible/
+        dest: ./tmp/ansible/
+        recursive: yes
+        delete: yes
+        mode: pull
+        rsync_opts:
+          - --include=*.yaml
+          - --include=*.cfg
+          - --include=*.sh
+          - --include=*.py
+          - --include=*.md
+          - --exclude=*
 
-  - name: Build image
-    ansible.builtin.shell: docker build --tag={{ image }}:{{ tag }} -f /tmp/hello/Dockerfile /tmp/hello
+    - name: Get the dist info
+      shell: "uname -a"
+      register: distinfo
 
-  - name: Get temporary registry access token
-    local_action:
-      module: ansible.builtin.command
-      _raw_params: gcloud auth application-default print-access-token
-    register: access_token_result
+    - name: Some other op
+      shell: "ls -la"
 
-  - name: Set access token variable
-    set_fact:
-      access_token: "{{ access_token_result.stdout }}"
-
-  - name: Push image
-    ansible.builtin.shell: echo "{{ access_token }}" | docker login -u oauth2accesstoken --password-stdin https://{{ location }}-docker.pkg.dev && docker push {{ image }}:{{ tag }}
-
-  - name: Run hello image
-    ansible.builtin.command: docker run -ti --rm {{ image }}:{{ tag }}
+    - name: Display the dist info
+      debug: msg="{{ distinfo.stdout }}"
