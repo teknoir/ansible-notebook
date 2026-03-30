@@ -4,14 +4,21 @@ import os
 import argparse
 import json
 import base64
-import yaml
-import copy
 from kubernetes import client, config
-from kubernetes.config import ConfigException
 
 """
 Teknoir Notebook custom dynamic inventory script for Ansible, in Python.
 """
+
+NAMESPACE_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+
+def get_current_namespace():
+    """Returns the namespace this pod is running in, or 'default' if not found."""
+    if os.path.exists(NAMESPACE_FILE):
+        with open(NAMESPACE_FILE, "r") as f:
+            return f.read().strip()
+    return "default"
 
 
 class TeknoirInventory(object):
@@ -45,17 +52,8 @@ class TeknoirInventory(object):
             except config.ConfigException:
                 raise Exception("Could not configure kubernetes python client")
 
-        contexts, current_context = config.list_kube_config_contexts()
-        if not contexts or len(contexts) < 2:
-            raise Exception("No valid kube config contexts found")
-
-        def get_domain(value):
-            return {
-                'gke_teknoir_us-central1-c_teknoir-cluster': 'teknoir.cloud',
-                'gke_teknoir-poc_us-central1-c_teknoir-dev-cluster': 'teknoir.dev',
-            }.get(value, 'teknoir.cloud')
-        domain = get_domain(current_context['context']['cluster'])
-        namespace = current_context['context'].get('namespace', os.environ.get('NAMESPACE', 'default'))
+        domain = os.environ.get('DOMAIN', 'teknoir.cloud')
+        namespace = os.environ.get('NAMESPACE', get_current_namespace())
 
         custom_api = client.CustomObjectsApi()
         devices = custom_api.list_namespaced_custom_object(group="teknoir.org",
@@ -103,17 +101,20 @@ class TeknoirInventory(object):
 
             # print(json.dumps(device, indent=4, sort_keys=True))
 
-            tunnel_port = str(random.randint(1024, 64511))
-            tunnel_opened = False
-            if ('remote_access' in device['subresources']['status'] and
-                'active' in device['subresources']['status']['remote_access'] and
-                'port' in device['subresources']['status']['remote_access']):
-                tunnel_opened = device['subresources']['status']['remote_access']['active']
-                tunnel_port = device['subresources']['status']['remote_access']['port']
+            if not ('remote_access' in device['subresources']['status'] and
+                    'active' in device['subresources']['status']['remote_access'] and
+                    'port' in device['subresources']['status']['remote_access']):
+                continue
+
+            tunnel_opened = device['subresources']['status']['remote_access']['active']
+            tunnel_port = device['subresources']['status']['remote_access']['port']
+
+            if not tunnel_opened:
+                continue
 
             if ('data' not in device['spec']['keys'] or
-                'username' not in device['spec']['keys']['data'] or
-                'userpassword' not in device['spec']['keys']['data']):
+                    'username' not in device['spec']['keys']['data'] or
+                    'userpassword' not in device['spec']['keys']['data']):
                 continue
 
             deadendhost = f'deadend.{namespace}'
@@ -131,7 +132,7 @@ class TeknoirInventory(object):
                 'ansible_become_pass': userpassword,
                 'ansible_become_flags': '-E',
                 'ansible_ssh_private_key_file': private_key_file,
-                'ansible_ssh_args': f'-o ForwardAgent=yes -o ProxyCommand="{pcmd}"',
+                'ansible_ssh_args': f'-o ForwardAgent=yes -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -o ServerAliveInterval=60 -o ProxyCommand="{pcmd}"',
                 'ansible_python_interpreter': '/usr/bin/python3',
                 'ansible_ssh_retries': 20,
                 'ansible_kubectl_namespace': device["metadata"]["namespace"],
